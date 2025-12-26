@@ -1,0 +1,13 @@
+# IDE
+.idea/
+
+# Node
+node_modules
+.next
+
+# Env
+.env
+.env.*
+
+# OS
+.DS_Store
