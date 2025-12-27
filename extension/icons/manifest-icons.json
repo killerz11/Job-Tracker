@@ -1,0 +1,9 @@
+{
+  "note": "Icon generation instructions",
+  "icon16": "16x16px icon for extension toolbar",
+  "icon32": "32x32px icon for extension management",
+  "icon48": "48x48px icon for extension management",
+  "icon128": "128x128px icon for Chrome Web Store",
+  "design": "Use briefcase icon with blue background (#2563eb)",
+  "placeholder": "Replace icon files with actual PNG files before publishing"
+}
