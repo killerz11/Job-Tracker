@@ -44,3 +44,26 @@ export async function getJobs(userId: string) {
     });
     
 }
+
+export async function updateJob(
+    userId: string,
+    jobId: string,
+    data: { status?: string }
+) {
+    // Verify the job belongs to the user
+    const job = await prisma.job.findFirst({
+        where: { id: jobId, userId },
+    });
+
+    if (!job) {
+        throw new Error("Job not found");
+    }
+
+    return prisma.job.update({
+        where: { id: jobId },
+        data: {
+            status: data.status as any,
+            updatedAt: new Date(),
+        },
+    });
+}

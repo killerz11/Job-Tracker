@@ -8,4 +8,6 @@ router.post("/", authenticate, controller.createJob);
 
 router.get("/", authenticate, controller.listJobs);
 
+router.patch("/:id", authenticate, controller.updateJob);
+
 export default router;

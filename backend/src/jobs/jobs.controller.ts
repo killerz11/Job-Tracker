@@ -18,3 +18,16 @@ export async function listJobs(
   const jobs = await jobsService.getJobs(req.userId!);
   res.json({ jobs });
 }
+
+export async function updateJob(
+  req: Request & { userId?: string },
+  res: Response
+) {
+  try {
+    const { id } = req.params;
+    const job = await jobsService.updateJob(req.userId!, id, req.body);
+    res.json(job);
+  } catch (error: any) {
+    res.status(404).json({ error: error.message });
+  }
+}

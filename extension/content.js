@@ -95,10 +95,70 @@ async function handleSubmitApplication() {
     },
     (response) => {
       console.log("[JobTracker] Background response:", response);
+      
+      // Show visual feedback on the page
+      if (response?.success) {
+        showPageNotification("✅ Job tracked successfully!", "success");
+      } else {
+        showPageNotification("❌ Failed to track job: " + (response?.error || "Unknown error"), "error");
+      }
     }
   );
 
   isProcessing = false;
+}
+
+/**
+ * Show notification on LinkedIn page
+ */
+function showPageNotification(message, type) {
+  // Remove existing notification if any
+  const existing = document.getElementById("jobtracker-notification");
+  if (existing) existing.remove();
+
+  const notification = document.createElement("div");
+  notification.id = "jobtracker-notification";
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 20px;
+    background: ${type === "success" ? "#10b981" : "#ef4444"};
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 350px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  notification.textContent = message;
+
+  // Add animation
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.body.appendChild(notification);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.style.animation = "slideIn 0.3s ease-out reverse";
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
 }
 
 /**

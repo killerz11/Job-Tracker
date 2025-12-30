@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, {type JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "../config/jwt.js";
 
 interface TokenPayload extends JwtPayload {
@@ -16,6 +16,9 @@ export function authenticate(
         return res.status(401).json({ error: "Unauthorized" });
 
     const token = authHeader.split(" ")[1];
+    if (!token)
+        return res.status(401).json({ error: "Unauthorized" });
+
     try {
         const payload = jwt.verify(token, JWT_SECRET) as unknown as TokenPayload;
         req.userId = payload.userId;
