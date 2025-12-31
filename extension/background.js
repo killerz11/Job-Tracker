@@ -21,6 +21,36 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Keep the message channel open for async response
     return true;
   }
+
+  if (message.type === "EXTERNAL_APPLY_CACHED") {
+    // Show browser notification for external apply
+    showExternalApplyNotification(message.count);
+    
+    // Set badge on extension icon to indicate pending jobs
+    chrome.action.setBadgeText({ text: String(message.count) });
+    chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "UPDATE_BADGE") {
+    // Update badge count
+    const count = message.count || 0;
+    chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+    if (count > 0) {
+      chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "CLEAR_BADGE") {
+    // Clear badge when all jobs are confirmed or cancelled
+    chrome.action.setBadgeText({ text: "" });
+    sendResponse({ success: true });
+    return true;
+  }
 });
 
 // -------------------------------------
@@ -95,4 +125,20 @@ function showNotification(type, jobData, errorMessage) {
   }
 
   chrome.notifications.create(`jobtracker-${Date.now()}`, notificationOptions);
+}
+
+// -------------------------------------
+// Show notification for external apply
+// -------------------------------------
+function showExternalApplyNotification(count) {
+  const notificationOptions = {
+    type: "basic",
+    iconUrl: "icons/icon128.jpg",
+    title: "💼 Job Saved - Action Required",
+    message: `You have ${count} pending job${count > 1 ? 's' : ''} waiting for confirmation.\n\n✓ After you apply on their website, click the extension icon (with badge ⓵) to confirm and save to your dashboard.`,
+    priority: 2,
+    requireInteraction: true // Keeps notification visible until user interacts
+  };
+
+  chrome.notifications.create(`jobtracker-external-${Date.now()}`, notificationOptions);
 }
