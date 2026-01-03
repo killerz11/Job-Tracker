@@ -25,6 +25,9 @@ export async function updateJob(
 ) {
   try {
     const { id } = req.params;
+    if (!id) {
+      throw new Error("id is required");
+  }
     const job = await jobsService.updateJob(req.userId!, id, req.body);
     res.json(job);
   } catch (error: any) {

@@ -1,32 +1,25 @@
 import express from "express";
 import cors from "cors";
-
 const app = express();
-
 app.use(express.json());
-
 const allowedOrigins = [
-    "http://localhost:3000",     
-    "http://localhost:5173", 
+    "http://localhost:3000",
+    "http://localhost:5173",
 ];
-
 app.use(cors({
     origin: (origin, callback) => {
-        if(!origin){
+        if (!origin) {
             return callback(null, true);
         }
-
         if (origin.startsWith("chrome-extension://")) {
             return callback(null, true);
         }
-
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-
         callback(new Error("Not allowed by CORS"));
-        },
-        credentials: true,
+    },
+    credentials: true,
 }));
-
 export default app;
+//# sourceMappingURL=app.js.map
