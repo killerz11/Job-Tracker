@@ -7,7 +7,8 @@ app.use(express.json());
 
 const allowedOrigins = [
     "http://localhost:3000",     
-    "http://localhost:5173", 
+    "http://localhost:5173",
+    "https://humorous-solace-production.up.railway.app", // Railway backend (for testing)
 ];
 
 app.use(cors({
