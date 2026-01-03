@@ -9,7 +9,7 @@ const allowedOrigins = [
     "http://localhost:3000",     
     "http://localhost:5173",
     "https://humorous-solace-production.up.railway.app",
-    "https://job-tracker-gules-eta.vercel.app/" // Railway backend (for testing)
+    "https://job-tracker-gules-eta.vercel.app", // Vercel frontend
 ];
 
 app.use(cors({
