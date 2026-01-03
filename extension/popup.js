@@ -19,8 +19,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Normal popup flow
   // ===============================
 
-  const { apiUrl, authToken } = await chrome.storage.sync.get([
+  const { apiUrl, dashboardUrl, authToken } = await chrome.storage.sync.get([
     "apiUrl",
+    "dashboardUrl",
     "authToken",
   ]);
 
@@ -28,26 +29,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("apiUrl").value = apiUrl;
   }
 
+  if (dashboardUrl) {
+    document.getElementById("dashboardUrl").value = dashboardUrl;
+  }
+
   if (authToken) {
     await checkConnectionStatus(authToken);
+  } else {
+    // Show not logged in state
+    const statusEl = document.getElementById("authStatus");
+    const countEl = document.getElementById("appCount");
+    if (statusEl) {
+      statusEl.textContent = "Not logged in";
+      statusEl.classList.add("disconnected");
+    }
+    if (countEl) {
+      countEl.textContent = "-";
+    }
   }
 
   // Save configuration
   document.getElementById("saveConfig")?.addEventListener("click", async () => {
     const apiUrl = document.getElementById("apiUrl").value.trim();
-    await chrome.storage.sync.set({ apiUrl });
+    const dashboardUrl = document.getElementById("dashboardUrl").value.trim();
+    
+    if (!apiUrl) {
+      alert("Please enter Backend API URL");
+      return;
+    }
+    
+    await chrome.storage.sync.set({ apiUrl, dashboardUrl });
     alert("Configuration saved!");
   });
 
   // Open dashboard
   document.getElementById("openDashboard")?.addEventListener("click", async () => {
-    const { apiUrl, authToken } = await chrome.storage.sync.get([
+    const { apiUrl, dashboardUrl, authToken } = await chrome.storage.sync.get([
       "apiUrl",
+      "dashboardUrl",
       "authToken",
     ]);
 
     const backendUrl = apiUrl || "http://localhost:4000";
-    const dashboardUrl = "http://localhost:3000";
+    const webDashboardUrl = dashboardUrl || "http://localhost:3000";
 
     if (!authToken) {
       alert("Please login first to open dashboard");
@@ -63,7 +87,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    chrome.tabs.create({ url: `${dashboardUrl}/dashboard` });
+    chrome.tabs.create({ url: `${webDashboardUrl}/dashboard` });
   });
 
   // Login
@@ -117,7 +141,6 @@ function showPendingJobsUI(jobs) {
     </div>
     
     <div style="text-align: center; margin: 16px 0 20px 0;">
-      <div style="font-size: 36px; margin-bottom: 8px;">💼</div>
       <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 6px 0;">
         Pending Applications
       </h2>
@@ -383,7 +406,7 @@ async function saveJobToBackend(jobData) {
         location: jobData.location,
         description: jobData.description,
         jobUrl: jobData.jobUrl,
-        platform: "linkedin",
+        platform: jobData.platform || "linkedin",
         appliedAt: jobData.appliedAt,
       }),
     });
@@ -565,7 +588,7 @@ function showPendingJobUI(jobData) {
           location: jobData.location,
           description: jobData.description,
           jobUrl: jobData.jobUrl,
-          platform: "linkedin",
+          platform: jobData.platform || "linkedin",
           appliedAt: jobData.appliedAt,
         }),
       });
@@ -639,6 +662,7 @@ async function checkConnectionStatus(token) {
       statusEl.textContent = "Not logged in";
       statusEl.classList.remove("connected");
       statusEl.classList.add("disconnected");
+      countEl.textContent = "-";
       return;
     }
 
@@ -646,18 +670,41 @@ async function checkConnectionStatus(token) {
     statusEl.classList.add("connected");
     statusEl.classList.remove("disconnected");
 
-    const jobsRes = await fetch(`${baseUrl}/api/jobs`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // Fetch jobs count
+    try {
+      const jobsRes = await fetch(`${baseUrl}/api/jobs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    if (jobsRes.ok) {
-      const data = await jobsRes.json();
-      countEl.textContent = data.jobs.length;
+      if (jobsRes.ok) {
+        const data = await jobsRes.json();
+        console.log("[JobTracker] Jobs response:", data);
+        
+        // Handle different response formats
+        let jobCount = 0;
+        if (Array.isArray(data)) {
+          jobCount = data.length;
+        } else if (data.jobs && Array.isArray(data.jobs)) {
+          jobCount = data.jobs.length;
+        } else if (typeof data.count === 'number') {
+          jobCount = data.count;
+        }
+        
+        countEl.textContent = jobCount;
+        console.log("[JobTracker] Job count:", jobCount);
+      } else {
+        console.error("[JobTracker] Failed to fetch jobs:", jobsRes.status, await jobsRes.text());
+        countEl.textContent = "0";
+      }
+    } catch (jobError) {
+      console.error("[JobTracker] Error fetching jobs:", jobError);
+      countEl.textContent = "0";
     }
   } catch (error) {
     console.error("[JobTracker] Connection check failed:", error);
     statusEl.textContent = "Connection error";
     statusEl.classList.remove("connected");
     statusEl.classList.add("disconnected");
+    countEl.textContent = "-";
   }
 }

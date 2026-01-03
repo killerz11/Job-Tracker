@@ -26,7 +26,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 10px;
       padding-bottom: 16px;
       border-bottom: 1px solid #e5e5e5;
     }
@@ -54,10 +54,10 @@
     }
     
     .status {
-      padding: 16px;
+      padding: 12px;
       background: white;
       border: 1px solid #e5e5e5;
-      border-radius: 12px;
+      border-radius: 10px;
       margin-bottom: 20px;
     }
     
@@ -65,7 +65,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 0;
+      padding: 5px 0;
       font-size: 14px;
     }
     
@@ -207,7 +207,6 @@
 <body>
   <div id="content">
     <div class="header">
-      <div class="logo">JT</div>
       <h1>JobTracker</h1>
     </div>
     
@@ -226,8 +225,6 @@
       <button id="openDashboard" class="secondary">Open Dashboard</button>
     </div>
 
-    <div class="divider"></div>
-    
     <div id="authSection">
       <div class="section-title">Login</div>
       <input id="email" type="email" placeholder="Email" autocomplete="email" />
@@ -235,16 +232,8 @@
       <button id="loginBtn">Login</button>
     </div>
 
-    <div class="divider"></div>
-
-    <div class="section">
-      <div class="section-title">API Configuration</div>
-      <input type="url" id="apiUrl" placeholder="http://localhost:4000" />
-      <button id="saveConfig" class="secondary">Save Configuration</button>
-    </div>
-    
     <div class="info">
-      Visit LinkedIn job pages and click "Apply" or "Easy Apply" to automatically track applications.
+      Visit job pages and click "Apply" or "Easy Apply" to automatically track applications.
     </div>
   </div>
   

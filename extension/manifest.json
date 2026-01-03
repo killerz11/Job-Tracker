@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "JobTracker - LinkedIn Application Tracker",
   "version": "1.0.0",
-  "description": "Track your LinkedIn job applications and sync them to your dashboard",
+  "description": "Track your LinkedIn job applications automatically. Never lose track of where you applied. Sync with your personal dashboard.",
+  "author": "Your Name",
 
   "permissions": ["storage", "notifications"],
 
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "http://localhost:3000/*",
-    "http://localhost:4000/*"
+     "https://www.naukri.com/*"
   ],
 
   "background": {
@@ -28,15 +28,20 @@
 
   "icons": {
     "16": "icons/icon16.jpg",
-    "32": "icons/icon32.jpg",
-    "48": "icons/icon48.jpg",
-    "128": "icons/icon128.jpg"
+      "32": "icons/icon32.jpg",
+      "48": "icons/icon48.jpg",
+      "128": "icons/icon128.jpg"
   },
 
   "content_scripts": [
     {
       "matches": ["https://www.linkedin.com/jobs/*"],
-      "js": ["content.js"],
+      "js": ["shared.js", "content-linkedin.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.naukri.com/*"],
+      "js": ["shared.js", "content-naukri.js"],
       "run_at": "document_idle"
     }
   ]

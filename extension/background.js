@@ -84,7 +84,7 @@ async function handleJobApplication(jobData) {
       location: jobData.location,
       description: jobData.description,
       jobUrl: jobData.jobUrl,
-      platform: "linkedin",
+      platform: jobData.platform || "linkedin",
       appliedAt: jobData.appliedAt,
     }),
   });
