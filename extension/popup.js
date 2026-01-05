@@ -1,5 +1,9 @@
 // Popup script
 
+// Hardcoded production URLs
+const BACKEND_URL = "https://humorous-solace-production.up.railway.app";
+const DASHBOARD_URL = "https://job-tracker-gules-eta.vercel.app";
+
 document.addEventListener("DOMContentLoaded", async () => {
   // ===============================
   // Check for pending jobs FIRST
@@ -19,19 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Normal popup flow
   // ===============================
 
-  const { apiUrl, dashboardUrl, authToken } = await chrome.storage.sync.get([
-    "apiUrl",
-    "dashboardUrl",
-    "authToken",
-  ]);
-
-  if (apiUrl) {
-    document.getElementById("apiUrl").value = apiUrl;
-  }
-
-  if (dashboardUrl) {
-    document.getElementById("dashboardUrl").value = dashboardUrl;
-  }
+  const { authToken } = await chrome.storage.sync.get(["authToken"]);
 
   if (authToken) {
     await checkConnectionStatus(authToken);
@@ -48,46 +40,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Save configuration
-  document.getElementById("saveConfig")?.addEventListener("click", async () => {
-    const apiUrl = document.getElementById("apiUrl").value.trim();
-    const dashboardUrl = document.getElementById("dashboardUrl").value.trim();
-    
-    if (!apiUrl) {
-      alert("Please enter Backend API URL");
-      return;
-    }
-    
-    await chrome.storage.sync.set({ apiUrl, dashboardUrl });
-    alert("Configuration saved!");
-  });
-
   // Open dashboard
   document.getElementById("openDashboard")?.addEventListener("click", async () => {
-    const { apiUrl, dashboardUrl, authToken } = await chrome.storage.sync.get([
-      "apiUrl",
-      "dashboardUrl",
-      "authToken",
-    ]);
-
-    const backendUrl = apiUrl || "http://localhost:4000";
-    const webDashboardUrl = dashboardUrl || "http://localhost:3000";
+    const { authToken } = await chrome.storage.sync.get(["authToken"]);
 
     if (!authToken) {
-      alert("Please login first to open dashboard");
+      // Open login page for new users
+      chrome.tabs.create({ url: `${DASHBOARD_URL}/login` });
       return;
     }
 
-    const res = await fetch(`${backendUrl}/api/auth/me`, {
+    const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
     if (!res.ok) {
-      alert("Session expired. Please login again.");
+      // Session expired, open login page
+      chrome.tabs.create({ url: `${DASHBOARD_URL}/login` });
       return;
     }
 
-    chrome.tabs.create({ url: `${webDashboardUrl}/dashboard` });
+    // Authenticated, open dashboard
+    chrome.tabs.create({ url: `${DASHBOARD_URL}/dashboard` });
   });
 
   // Login
@@ -100,10 +74,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const baseUrl = apiUrl || "http://localhost:4000";
-
     try {
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
+      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -136,7 +108,6 @@ function showPendingJobsUI(jobs) {
   
   content.innerHTML = `
     <div class="header">
-      <div class="logo">JT</div>
       <h1>JobTracker</h1>
     </div>
     
@@ -385,16 +356,14 @@ async function handleConfirmJob(jobId, shouldSave) {
 
 async function saveJobToBackend(jobData) {
   try {
-    const { apiUrl, authToken } = await chrome.storage.sync.get(["apiUrl", "authToken"]);
+    const { authToken } = await chrome.storage.sync.get(["authToken"]);
     
     if (!authToken) {
       showStatusMessage("❌ Please login first", "error");
       return false;
     }
-
-    const baseUrl = apiUrl || "http://localhost:4000";
     
-    const response = await fetch(`${baseUrl}/api/jobs`, {
+    const response = await fetch(`${BACKEND_URL}/api/jobs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -561,7 +530,7 @@ function showPendingJobUI(jobData) {
     btn.style.opacity = "0.7";
 
     try {
-      const { apiUrl, authToken } = await chrome.storage.sync.get(["apiUrl", "authToken"]);
+      const { authToken } = await chrome.storage.sync.get(["authToken"]);
       
       if (!authToken) {
         statusMsg.style.display = "block";
@@ -573,10 +542,8 @@ function showPendingJobUI(jobData) {
         btn.textContent = "✓ Yes, I applied";
         return;
       }
-
-      const baseUrl = apiUrl || "http://localhost:4000";
       
-      const response = await fetch(`${baseUrl}/api/jobs`, {
+      const response = await fetch(`${BACKEND_URL}/api/jobs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -650,11 +617,8 @@ async function checkConnectionStatus(token) {
   const statusEl = document.getElementById("authStatus");
   const countEl = document.getElementById("appCount");
 
-  const { apiUrl } = await chrome.storage.sync.get(["apiUrl"]);
-  const baseUrl = apiUrl || "http://localhost:4000";
-
   try {
-    const res = await fetch(`${baseUrl}/api/auth/me`, {
+    const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -672,7 +636,7 @@ async function checkConnectionStatus(token) {
 
     // Fetch jobs count
     try {
-      const jobsRes = await fetch(`${baseUrl}/api/jobs`, {
+      const jobsRes = await fetch(`${BACKEND_URL}/api/jobs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
