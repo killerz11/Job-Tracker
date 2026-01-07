@@ -88,63 +88,37 @@ async function processJobQueue() {
  * Extract job details (SAFE + RELIABLE)
  */
 function extractJobDetails() {
-  const jobDetails = {
-    jobTitle:
-      document.querySelector("h1")?.innerText.trim() ||
-      document.querySelector(".job-details-jobs-unified-top-card__job-title")?.innerText.trim() ||
-      "",
 
-    companyName:
-      document.querySelector(
-        ".job-details-jobs-unified-top-card__company-name a"
-      )?.innerText.trim() ||
-      document.querySelector('a[href*="/company/"]')?.innerText.trim() ||
-      document.querySelector(".job-details-jobs-unified-top-card__company-name")?.innerText.trim() ||
-      "",
+  const locEl = document.querySelector(
+    'span[dir="ltr"] span.tvm__text--low-emphasis'
+  );
 
-    location:
-      document.querySelector(
-        ".job-details-jobs-unified-top-card__bullet"
-      )?.innerText.trim() ||
-      document.querySelector(
-        ".job-details-jobs-unified-top-card__primary-description"
-      )?.innerText.trim() ||
-      document.querySelector(
-        '[class*="job-details"][class*="location"]'
-      )?.innerText.trim() ||
-      document.querySelector(
-        '.jobs-unified-top-card__bullet'
-      )?.innerText.trim() ||
-      document.querySelector(
-        '.jobs-unified-top-card__workplace-type'
-      )?.innerText.trim() ||
-      // Try to find location in any element with "location" in class name
-      Array.from(document.querySelectorAll('[class*="location"]'))
-        .find(el => el.innerText && el.innerText.length < 100)
-        ?.innerText.trim() ||
-      "",
+  const locationText =
+    locEl?.innerText.split("·")[0].trim();
 
+  const jobTitle =
+    document.querySelector(
+      "h1.t-24.t-bold"
+    )?.innerText.trim() || "";
+
+  const company =
+    document.querySelector(
+      ".job-details-jobs-unified-top-card__company-name a"
+    )?.innerText.trim() || "";
+
+  return {
+    jobTitle,
+    companyName: company,
+    location: locationText,
     description:
-      document
-        .querySelector(".jobs-description-content__text")
+      document.querySelector(".jobs-description-content__text")
         ?.innerText.trim()
         .slice(0, 5000) || "",
-
     jobUrl: location.href,
     appliedAt: new Date().toISOString(),
   };
-
-  // Log extracted data for debugging
-  console.log("[JobTracker] Extracted job details:", {
-    jobTitle: jobDetails.jobTitle,
-    companyName: jobDetails.companyName,
-    location: jobDetails.location || "(no location found)",
-    hasDescription: !!jobDetails.description,
-    jobUrl: jobDetails.jobUrl
-  });
-
-  return jobDetails;
 }
+
 
 /**
  * Cache job data when Easy Apply starts
@@ -163,59 +137,97 @@ function cacheJobData() {
   }
 }
 
+
+async function waitForLinkedInSuccessModal() {
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+
+      const modal = document.querySelector('[role="dialog"]');
+
+      if (!modal) return;
+
+      const text = (modal.innerText || "").toLowerCase();
+
+      if (
+        text.includes("application sent") ||
+        text.includes("your application was sent") ||
+        text.includes("done")
+      ) {
+        observer.disconnect();
+        resolve(true);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Fallback — if nothing changes
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(false);
+    }, 4000);
+  });
+}
+
+
+
 /**
  * FINAL handler – ONLY after submit
  */
 async function handleSubmitApplication() {
+
+  // 1) Ensure this runs only for EASY APPLY submit press
   if (lastApplyType !== "EASY_APPLY") {
     console.log("[JobTracker] Not an Easy Apply flow, skipping");
     return;
   }
-  
+
   console.log("[JobTracker] Submit clicked - processing application");
 
-  // Wait for LinkedIn to process (reduced delay)
-  await new Promise(r => setTimeout(r, 1000)); // Reduced from 2000ms to 1000ms
+  // 2) Wait for LinkedIn internal processing
+  await new Promise(r => setTimeout(r, 1000));
 
-  // Check if the Easy Apply modal is still open
-  const modalStillOpen = document.querySelector('[role="dialog"]');
-  const hasErrorMessage = document.body.innerText.toLowerCase().includes("please enter") ||
-                          document.body.innerText.toLowerCase().includes("required") ||
-                          document.body.innerText.toLowerCase().includes("this field");
+  // 3) ---- ABSOLUTE CONFIRMATION LOGIC ----
 
-  if (modalStillOpen && hasErrorMessage) {
-    console.log("[JobTracker] Form has errors - not submitted");
-    lastApplyType = null;
+  const confirmed = await waitForLinkedInSuccessModal();
+
+  if (!confirmed) {
+    console.log("[JobTracker] ❌ LinkedIn did not show success banner");
     return;
   }
 
-  // If modal is gone or no errors, assume success
-  if (!modalStillOpen || !hasErrorMessage) {
-    console.log("[JobTracker] Application appears to be submitted (modal closed or no errors)");
-  }
+  console.log("[JobTracker] ✅ LinkedIn submission confirmed");
 
+  // 4) Get job data only after success
   const jobData = cachedJobData || extractJobDetails();
 
-  if (!jobData?.jobTitle || !jobData?.companyName) {
-    console.warn("[JobTracker] Incomplete job data", jobData);
+  // 5) Validate critical fields
+  if (!jobData || !jobData.jobTitle || !jobData.companyName) {
+    console.warn("[JobTracker] Incomplete job data:", jobData);
     lastApplyType = null;
     return;
   }
 
-  // Add to queue instead of processing immediately
+  // 6) Add to processing queue
   processingQueue.push({
     data: jobData,
     platform: "linkedin",
     jobTitle: jobData.jobTitle
   });
-  
-  console.log(`[JobTracker] Added to queue (${processingQueue.length} jobs pending)`);
-  
+
+  console.log(
+    `[JobTracker] Added to queue (${processingQueue.length} jobs pending)`
+  );
+
+  // 7) Reset flow marker
   lastApplyType = null;
-  
-  // Start processing queue
+
+  // 8) Start queue processing
   processJobQueue();
 }
+
 
 /**
  * Handle external apply button clicks

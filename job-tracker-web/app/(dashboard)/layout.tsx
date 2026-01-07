@@ -25,6 +25,14 @@ export default function DashboardLayout({
 
     useEffect(() => {
         setMounted(true);
+        
+        // Check if user is authenticated
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+            router.push("/login");
+            return;
+        }
+        
         const fetchUser = async () => {
             try {
                 const data = await apiFetch("/api/auth/me");
@@ -32,10 +40,14 @@ export default function DashboardLayout({
                 setUserEmail(localStorage.getItem("userEmail") || "user@example.com");
             } catch (err) {
                 console.error("Failed to fetch user:", err);
+                // If auth fails, redirect to login
+                localStorage.removeItem("authToken");
+                localStorage.removeItem("userEmail");
+                router.push("/login");
             }
         };
         fetchUser();
-    }, []);
+    }, [router]);
 
     const handleLogout = () => {
         localStorage.removeItem("authToken");

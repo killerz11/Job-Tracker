@@ -15,8 +15,10 @@ export async function listJobs(
   req: Request & { userId?: string },
   res: Response
 ) {
-  const jobs = await jobsService.getJobs(req.userId!);
-  res.json({ jobs });
+  const page = Number(req.query.page) || 1;    
+  const limit = Number(req.query.limit) || 10;   
+  const result = await jobsService.getJobs(req.userId!, page, limit);
+  res.json(result);
 }
 
 export async function updateJob(

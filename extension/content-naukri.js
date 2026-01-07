@@ -148,17 +148,9 @@ function handleExternalApply() {
  * - id: "company-site-button"
  */
 document.addEventListener("click", (e) => {
-  let button = e.target;
-  
-  // Traverse up to find button (max 5 levels)
-  for (let i = 0; i < 5 && button && button !== document.body; i++) {
-    if (button.tagName === "BUTTON" || 
-        button.tagName === "A" || 
-        button.getAttribute("role") === "button") {
-      break;
-    }
-    button = button.parentElement;
-  }
+  const button = (e.target)?.closest(
+  "#apply-button, #company-site-button"
+  );
 
   if (!button) return;
 
