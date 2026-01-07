@@ -37,13 +37,32 @@ export async function createJob(
     });
 }
 
-export async function getJobs(userId: string) {
-    return prisma.job.findMany({
-        where: {userId},
-        orderBy: {appliedAt: "desc"},
+
+export async function getJobs(userId: string, page: number = 1, limit: number = 15) {
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.job.count({
+        where: {userId}
     });
-    
+
+    const jobs = await prisma.job.findMany({
+        skip: skip,
+        take: limit,
+        where: {userId},
+        orderBy:{appliedAt: "desc"},
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return{
+        jobs,
+        total,
+        page,
+        totalPages,
+        limit
+    };
 }
+
 
 export async function updateJob(
     userId: string,

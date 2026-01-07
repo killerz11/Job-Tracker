@@ -69,7 +69,7 @@ async function handleJobApplication(jobData) {
     throw new Error("Auth token not found in extension storage");
   }
 
-  const baseUrl = apiUrl || "http://localhost:4000";
+  const baseUrl = apiUrl || "https://humorous-solace-production.up.railway.app";
 
   // Send job data to backend with JWT auth
   const response = await fetch(`${baseUrl}/api/jobs`, {

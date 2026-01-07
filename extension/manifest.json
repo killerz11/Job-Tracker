@@ -36,8 +36,20 @@
   "content_scripts": [
     {
       "matches": ["https://www.linkedin.com/jobs/*"],
+      "js": ["error-suppressor.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://www.linkedin.com/jobs/*"],
       "js": ["shared.js", "content-linkedin.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.naukri.com/*"],
+      "js": ["error-suppressor.js"],
+      "run_at": "document_start",
+      "all_frames": true
     },
     {
       "matches": ["https://www.naukri.com/*"],
