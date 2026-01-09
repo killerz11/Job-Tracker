@@ -3,3 +3,13 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Compiled output
+dist/
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# But keep config files
+!*.config.js

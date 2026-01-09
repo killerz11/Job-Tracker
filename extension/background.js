@@ -1,75 +1,66 @@
-// =====================================
-// JobTracker – Background Service Worker
-// =====================================
+import { registerHandlers } from './core/messaging.js';
+import { get } from './core/storage.js';
+import { info, error as logError } from './core/logger.js';
 
 console.log("[JobTracker] Background service worker started");
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === "JOB_APPLICATION") {
-    handleJobApplication(message.data)
-      .then((result) => {
-        // Show success notification
-        showNotification("success", result);
-        sendResponse({ success: true, data: result });
-      })
-      .catch((error) => {
-        // Show error notification
-        showNotification("error", null, error.message);
-        sendResponse({ success: false, error: error.message });
-      });
+import { getBackendUrl } from './config.js';
 
-    // Keep the message channel open for async response
-    return true;
-  }
 
-  if (message.type === "EXTERNAL_APPLY_CACHED") {
-    // Show browser notification for external apply
-    showExternalApplyNotification(message.count);
-    
-    // Set badge on extension icon to indicate pending jobs
-    chrome.action.setBadgeText({ text: String(message.count) });
-    chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
-    
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "UPDATE_BADGE") {
-    // Update badge count
-    const count = message.count || 0;
-    chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
-    if (count > 0) {
-      chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
-    }
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "CLEAR_BADGE") {
-    // Clear badge when all jobs are confirmed or cancelled
-    chrome.action.setBadgeText({ text: "" });
-    sendResponse({ success: true });
-    return true;
-  }
+registerHandlers({
+  'JOB_APPLICATION': handleJobApplication,
+  'EXTERNAL_APPLY_CACHED': handleExternalApply,
+  'UPDATE_BADGE': handleUpdateBadge,
+  'CLEAR_BADGE': handleClearBadge
 });
+
+// -------------------------------------
+// Handler functions
+// -------------------------------------
+
+async function handleExternalApply(data) {
+  // Show browser notification for external apply
+  showExternalApplyNotification(data.count);
+  
+  // Set badge on extension icon to indicate pending jobs
+  chrome.action.setBadgeText({ text: String(data.count) });
+  chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+  
+  return { success: true };
+}
+
+async function handleUpdateBadge(data) {
+  // Update badge count
+  const count = data.count || 0;
+  chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+  if (count > 0) {
+    chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+  }
+  return { success: true };
+}
+
+async function handleClearBadge() {
+  // Clear badge when all jobs are confirmed or cancelled
+  chrome.action.setBadgeText({ text: "" });
+  return { success: true };
+}
+
 
 // -------------------------------------
 // Handle job application data
 // -------------------------------------
 async function handleJobApplication(jobData) {
-  console.log("[JobTracker] Processing job application:", jobData);
+  info('Processing job application:', jobData);
 
-  // Get API URL and auth token from storage
-  const { apiUrl, authToken } = await chrome.storage.sync.get([
-    "apiUrl",
-    "authToken",
-  ]);
+  const authToken = await get('authToken');
 
   if (!authToken) {
     throw new Error("Auth token not found in extension storage");
   }
 
-  const baseUrl = apiUrl || "https://humorous-solace-production.up.railway.app";
+  // Get backend URL from config
+  const baseUrl = await getBackendUrl();
+  info('Using backend URL:', baseUrl);
 
   // Send job data to backend with JWT auth
   const response = await fetch(`${baseUrl}/api/jobs`, {
@@ -99,7 +90,7 @@ async function handleJobApplication(jobData) {
   }
 
   const result = await response.json();
-  console.log("[JobTracker] Job saved successfully:", result);
+  info('Job saved successfully:', result);
 
   return result;
 }

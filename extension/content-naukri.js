@@ -1,6 +1,21 @@
 // =====================================
 // JobTracker – Naukri Job Application Tracker
 // =====================================
+import { info, error as logError, warn } from './core/logger.js';
+import {
+  showPageNotification,
+  sendJobToBackground,
+  cacheExternalApplyJob,
+  checkForPendingJob
+} from './shared.js';
+import { NaukriPlatform } from './platforms/NaukriPlatform.js';
+
+// Initialize platform
+const platform = new NaukriPlatform();
+
+info("Naukri content script loaded");
+info("Running on:", window.location.href);
+
 
 console.log("[JobTracker] Naukri content script loaded");
 console.log("[JobTracker] Running on:", window.location.href);
@@ -38,53 +53,9 @@ async function processJobQueue() {
  * Extract job details from Naukri page
  */
 function extractJobDetails() {
-  const jobDetails = {
-    jobTitle:
-      document.querySelector("h1")?.innerText.trim() ||
-      document.querySelector('[class*="title"]')?.innerText.trim() ||
-      "",
-
-    companyName: (() => {
-      // Get company name element
-      const companyEl = document.querySelector('[class="styles_jd-header-comp-name__MvqAI"]');
-      if (!companyEl) return "";
-      
-      let companyText = companyEl.innerText.trim();
-      
-      // Remove "X.X Reviews" pattern (e.g., "4.329 Reviews")
-      companyText = companyText.replace(/\d+\.?\d*\s*Reviews?/gi, '').trim();
-      
-      return companyText;
-    })(),
-
-    location:
-      document.querySelector('[class="styles_jhc__location__W_pVs"]')?.innerText.trim() ||
-      document.querySelector(".loc-wrap")?.innerText.trim() ||
-      document.querySelector(".location")?.innerText.trim() ||
-      document.querySelector('[class*="location"]')?.innerText.trim() ||
-      "",
-
-    description:
-      document.querySelector('[class*="jd-"]')?.innerText.trim().slice(0, 5000) ||
-      document.querySelector(".dang-inner-html")?.innerText.trim().slice(0, 5000) ||
-      document.querySelector(".job-description")?.innerText.trim().slice(0, 5000) ||
-      document.querySelector('[class*="description"]')?.innerText.trim().slice(0, 5000) ||
-      "",
-
-    jobUrl: location.href,
-    appliedAt: new Date().toISOString(),
-  };
-
-  console.log("[JobTracker] Extracted Naukri job details:", {
-    jobTitle: jobDetails.jobTitle,
-    companyName: jobDetails.companyName,
-    location: jobDetails.location || "(no location found)",
-    hasDescription: !!jobDetails.description,
-    jobUrl: jobDetails.jobUrl
-  });
-
-  return jobDetails;
+  return platform.extractJobDetails();
 }
+
 
 /**
  * Handle direct apply button click (applies on Naukri directly)
@@ -148,51 +119,29 @@ function handleExternalApply() {
  * - id: "company-site-button"
  */
 document.addEventListener("click", (e) => {
-  const button = (e.target)?.closest(
-  "#apply-button, #company-site-button"
+  const button = e.target?.closest(
+    "#apply-button, #company-site-button"
   );
 
   if (!button) return;
 
-  const text = button.innerText?.toLowerCase().trim() || "";
-  const classes = button.className || "";
-  const id = button.id || "";
+  // Use platform to detect button type
+  const applyType = platform.detectApplyButton(button);
+  
+  info("Naukri button clicked, type:", applyType);
 
-  // Debug logging - log ALL button clicks on Naukri
-  console.log("[JobTracker] Naukri button clicked:", {
-    text: text.substring(0, 50),
-    classes: classes.substring(0, 100),
-    id: id,
-    tagName: button.tagName
-  });
-
-  // Check for "Apply on company site" button (external redirect)
-  if (
-    text === "apply on company site" ||
-    text.includes("company site") ||
-    classes.includes("company-site-button") ||
-    id === "company-site-button"
-  ) {
-    console.log("[JobTracker] ✅ Naukri External Apply button detected!");
+  if (applyType === 'EXTERNAL_APPLY') {
+    info("✅ Naukri External Apply button detected!");
     handleExternalApply();
     return;
   }
 
-  // Check for direct "Apply" button (applies on Naukri)
-  if (
-    text === "apply" ||
-    text === "apply now" ||
-    (text.includes("apply") && !text.includes("company site")) ||
-    classes.includes("apply-button") ||
-    id.includes("apply")
-  ) {
-    console.log("[JobTracker] ✅ Naukri Direct Apply button detected!");
+  if (applyType === 'DIRECT_APPLY') {
+    info("✅ Naukri Direct Apply button detected!");
     handleDirectApply();
     return;
   }
 }, true);
-
-console.log("[JobTracker] Naukri event listeners attached");
 
 
 // Check for pending job when page loads

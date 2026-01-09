@@ -1,10 +1,8 @@
-// =====================================
-// Shared utilities for JobTracker
-// =====================================
+import { sendMessage } from './core/messaging.js';
+import { getLocal, setLocal, getPendingJobs, addPendingJob, removePendingJob } from './core/storage.js';
+import { info, error as logError } from './core/logger.js';
 
-/**
- * Show notification on page
- */
+
 function showPageNotification(message, type) {
   const existing = document.getElementById("jobtracker-notification");
   if (existing) existing.remove();
@@ -494,3 +492,14 @@ function showFinalConfirmationModal(jobData) {
     }
   });
 }
+
+// Export functions for use in content scripts
+export {
+  showPageNotification,
+  showExternalApplyNotification,
+  sendJobToBackground,
+  cacheExternalApplyJob,
+  showExtensionInvalidWarning,
+  checkForPendingJob,
+  showFinalConfirmationModal
+};

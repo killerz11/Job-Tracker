@@ -1,14 +1,24 @@
 // Popup script
+import { getBackendUrl, getDashboardUrl } from './config.js';
+import { getLocal } from './core/storage.js';
+import { info } from './core/logger.js';
 
-// Hardcoded production URLs
-const BACKEND_URL = "https://humorous-solace-production.up.railway.app";
-const DASHBOARD_URL = "https://job-tracker-gules-eta.vercel.app";
+// URLs are now managed by config.js
+let BACKEND_URL;
+let DASHBOARD_URL;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  // Initialize URLs from config
+  BACKEND_URL = await getBackendUrl();
+  DASHBOARD_URL = await getDashboardUrl();
+  
+  info('Using backend:', BACKEND_URL);
+  info('Using dashboard:', DASHBOARD_URL);
+  
   // ===============================
   // Check for pending jobs FIRST
   // ===============================
-  const { pendingJobs } = await chrome.storage.local.get("pendingJobs");
+  const pendingJobs = await getLocal("pendingJobs");
   
   if (pendingJobs && pendingJobs.length > 0) {
     // Show pending jobs list UI
@@ -439,177 +449,6 @@ function showStatusMessage(message, type) {
 }
 
 // ===============================
-// Pending Job UI (Single Job - Legacy, kept for compatibility)
-// ===============================
-
-function showPendingJobUI(jobData) {
-  const content = document.getElementById("content");
-  
-  content.innerHTML = `
-    <div class="header">
-      <div class="logo">JT</div>
-      <h1>JobTracker</h1>
-    </div>
-    
-    <div style="text-align: center; margin: 20px 0;">
-      <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
-      <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 8px 0;">
-        Did you complete your application?
-      </h2>
-      <p style="font-size: 13px; color: #6b7280; margin: 0;">
-        Confirm to save this to your dashboard
-      </p>
-    </div>
-
-    <div style="
-      background: #f3f4f6;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 20px;
-    ">
-      <div style="margin-bottom: 12px;">
-        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">COMPANY</div>
-        <div style="font-size: 15px; font-weight: 600; color: #111827;">${jobData.companyName}</div>
-      </div>
-      <div style="margin-bottom: 12px;">
-        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">POSITION</div>
-        <div style="font-size: 14px; font-weight: 500; color: #111827;">${jobData.jobTitle}</div>
-      </div>
-      ${jobData.location ? `
-      <div>
-        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">LOCATION</div>
-        <div style="font-size: 13px; color: #111827;">${jobData.location}</div>
-      </div>
-      ` : ''}
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      <button id="confirmYes" style="
-        padding: 12px;
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      ">
-        ✓ Yes, I applied
-      </button>
-      <button id="confirmNo" style="
-        padding: 12px;
-        background: #f3f4f6;
-        color: #374151;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      ">
-        ✗ No, I didn't
-      </button>
-    </div>
-
-    <div id="statusMessage" style="
-      margin-top: 12px;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      text-align: center;
-      display: none;
-    "></div>
-  `;
-
-  // Handle Yes button
-  document.getElementById("confirmYes").addEventListener("click", async () => {
-    const btn = document.getElementById("confirmYes");
-    const statusMsg = document.getElementById("statusMessage");
-    
-    btn.textContent = "Saving...";
-    btn.disabled = true;
-    btn.style.opacity = "0.7";
-
-    try {
-      const { authToken } = await chrome.storage.sync.get(["authToken"]);
-      
-      if (!authToken) {
-        statusMsg.style.display = "block";
-        statusMsg.style.background = "#fee2e2";
-        statusMsg.style.color = "#991b1b";
-        statusMsg.textContent = "❌ Please login first";
-        btn.disabled = false;
-        btn.style.opacity = "1";
-        btn.textContent = "✓ Yes, I applied";
-        return;
-      }
-      
-      const response = await fetch(`${BACKEND_URL}/api/jobs`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          companyName: jobData.companyName,
-          jobTitle: jobData.jobTitle,
-          location: jobData.location,
-          description: jobData.description,
-          jobUrl: jobData.jobUrl,
-          platform: jobData.platform || "linkedin",
-          appliedAt: jobData.appliedAt,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to save job");
-      }
-
-      // Success!
-      await chrome.storage.local.remove("pendingJob");
-      await chrome.action.setBadgeText({ text: "" });
-      
-      statusMsg.style.display = "block";
-      statusMsg.style.background = "#d1fae5";
-      statusMsg.style.color = "#065f46";
-      statusMsg.textContent = "✅ Job tracked successfully!";
-      
-      // Reload popup to normal view after 1.5 seconds
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-      
-    } catch (error) {
-      statusMsg.style.display = "block";
-      statusMsg.style.background = "#fee2e2";
-      statusMsg.style.color = "#991b1b";
-      statusMsg.textContent = "❌ " + error.message;
-      
-      btn.disabled = false;
-      btn.style.opacity = "1";
-      btn.textContent = "✓ Yes, I applied";
-    }
-  });
-
-  // Handle No button
-  document.getElementById("confirmNo").addEventListener("click", async () => {
-    await chrome.storage.local.remove("pendingJob");
-    await chrome.action.setBadgeText({ text: "" });
-    
-    const statusMsg = document.getElementById("statusMessage");
-    statusMsg.style.display = "block";
-    statusMsg.style.background = "#f3f4f6";
-    statusMsg.style.color = "#374151";
-    statusMsg.textContent = "Application not tracked";
-    
-    // Reload popup to normal view after 1 second
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  });
-}
-
-// ===============================
 // Auth + Stats helpers
 // ===============================
 
@@ -636,7 +475,7 @@ async function checkConnectionStatus(token) {
 
     // Fetch jobs count
     try {
-      const jobsRes = await fetch(`${BACKEND_URL}/api/jobs`, {
+      const jobsRes = await fetch(`${BACKEND_URL}/api/jobs?page=1&limit=1`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -644,15 +483,8 @@ async function checkConnectionStatus(token) {
         const data = await jobsRes.json();
         console.log("[JobTracker] Jobs response:", data);
         
-        // Handle different response formats
-        let jobCount = 0;
-        if (Array.isArray(data)) {
-          jobCount = data.length;
-        } else if (data.jobs && Array.isArray(data.jobs)) {
-          jobCount = data.jobs.length;
-        } else if (typeof data.count === 'number') {
-          jobCount = data.count;
-        }
+        // Use the total count from pagination metadata
+        const jobCount = data.total || 0;
         
         countEl.textContent = jobCount;
         console.log("[JobTracker] Job count:", jobCount);
