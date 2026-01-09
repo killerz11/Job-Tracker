@@ -38,23 +38,40 @@ export async function createJob(
 }
 
 
-export async function getJobs(userId: string, page: number = 1, limit: number = 15) {
+export async function getJobs(
+    userId: string, 
+    page: number = 1, 
+    limit: number = 10,
+    platform?: string,
+    status?: string
+) {
     const skip = (page - 1) * limit;
 
+    // Build where clause with optional platform and status filters
+    const whereClause: any = { userId };
+    
+    if (platform && platform !== 'ALL') {
+        whereClause.platform = platform.toUpperCase();
+    }
+
+    if (status && status !== 'ALL') {
+        whereClause.status = status.toUpperCase();
+    }
+
     const total = await prisma.job.count({
-        where: {userId}
+        where: whereClause
     });
 
     const jobs = await prisma.job.findMany({
         skip: skip,
         take: limit,
-        where: {userId},
-        orderBy:{appliedAt: "desc"},
+        where: whereClause,
+        orderBy: { appliedAt: "desc" },
     });
 
     const totalPages = Math.ceil(total / limit);
 
-    return{
+    return {
         jobs,
         total,
         page,
