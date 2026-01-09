@@ -373,24 +373,13 @@ async function saveJobToBackend(jobData) {
       return false;
     }
     
-    const response = await fetch(`${BACKEND_URL}/api/jobs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        companyName: jobData.companyName,
-        jobTitle: jobData.jobTitle,
-        location: jobData.location,
-        description: jobData.description,
-        jobUrl: jobData.jobUrl,
-        platform: jobData.platform || "linkedin",
-        appliedAt: jobData.appliedAt,
-      }),
+    // Send to background script instead of direct fetch
+    const response = await chrome.runtime.sendMessage({
+      type: 'JOB_APPLICATION',
+      data: jobData
     });
 
-    return response.ok;
+    return response?.success || false;
   } catch (error) {
     console.error("Failed to save job:", error);
     return false;

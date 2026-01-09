@@ -1,28 +1,56 @@
 import { registerHandlers } from './core/messaging.js';
-import { get } from './core/storage.js';
 import { info, error as logError } from './core/logger.js';
+import { JobQueue } from './services/JobQueue.js';
+import { ApiClient } from './services/ApiClient.js';
 
-console.log("[JobTracker] Background service worker started");
+info("Background service worker started");
 
-import { getBackendUrl } from './config.js';
+// Initialize services
+const apiClient = new ApiClient();
+const jobQueue = new JobQueue();
 
+// Override JobQueue's _sendJob to use ApiClient
+jobQueue._sendJob = async (job) => {
+  return await apiClient.saveJob(job);
+};
 
+// Initialize API client
+apiClient.init();
+
+// Register message handlers
 registerHandlers({
   'JOB_APPLICATION': handleJobApplication,
   'EXTERNAL_APPLY_CACHED': handleExternalApply,
   'UPDATE_BADGE': handleUpdateBadge,
-  'CLEAR_BADGE': handleClearBadge
+  'CLEAR_BADGE': handleClearBadge,
+  'RETRY_FAILED': handleRetryFailed
 });
 
-// -------------------------------------
 // Handler functions
-// -------------------------------------
+
+async function handleJobApplication(data) {
+  info('Received job application:', data.jobTitle);
+  
+  try {
+    // Add to queue (will process automatically)
+    await jobQueue.add(data);
+    
+    // Show success notification
+    showNotification('success', data);
+    
+    return { success: true };
+  } catch (error) {
+    logError('Failed to handle job application:', error);
+    showNotification('error', null, error.message);
+    throw error;
+  }
+}
 
 async function handleExternalApply(data) {
   // Show browser notification for external apply
   showExternalApplyNotification(data.count);
   
-  // Set badge on extension icon to indicate pending jobs
+  // Set badge on extension icon
   chrome.action.setBadgeText({ text: String(data.count) });
   chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
   
@@ -30,7 +58,6 @@ async function handleExternalApply(data) {
 }
 
 async function handleUpdateBadge(data) {
-  // Update badge count
   const count = data.count || 0;
   chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
   if (count > 0) {
@@ -40,64 +67,18 @@ async function handleUpdateBadge(data) {
 }
 
 async function handleClearBadge() {
-  // Clear badge when all jobs are confirmed or cancelled
   chrome.action.setBadgeText({ text: "" });
   return { success: true };
 }
 
-
-// -------------------------------------
-// Handle job application data
-// -------------------------------------
-async function handleJobApplication(jobData) {
-  info('Processing job application:', jobData);
-
-  const authToken = await get('authToken');
-
-  if (!authToken) {
-    throw new Error("Auth token not found in extension storage");
-  }
-
-  // Get backend URL from config
-  const baseUrl = await getBackendUrl();
-  info('Using backend URL:', baseUrl);
-
-  // Send job data to backend with JWT auth
-  const response = await fetch(`${baseUrl}/api/jobs`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${authToken}`,
-    },
-    body: JSON.stringify({
-      companyName: jobData.companyName,
-      jobTitle: jobData.jobTitle,
-      location: jobData.location,
-      description: jobData.description,
-      jobUrl: jobData.jobUrl,
-      platform: jobData.platform || "linkedin",
-      appliedAt: jobData.appliedAt,
-    }),
-  });
-
-  if (!response.ok) {
-    let errorMessage = "Failed to save job application";
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.error || errorMessage;
-    } catch (e) {}
-    throw new Error(errorMessage);
-  }
-
-  const result = await response.json();
-  info('Job saved successfully:', result);
-
-  return result;
+async function handleRetryFailed() {
+  info('Retrying failed jobs');
+  await jobQueue.retryFailed();
+  return { success: true };
 }
 
-// -------------------------------------
-// Show notification to user
-// -------------------------------------
+// Notification functions
+
 function showNotification(type, jobData, errorMessage) {
   const notificationOptions = {
     type: "basic",
@@ -118,9 +99,6 @@ function showNotification(type, jobData, errorMessage) {
   chrome.notifications.create(`jobtracker-${Date.now()}`, notificationOptions);
 }
 
-// -------------------------------------
-// Show notification for external apply
-// -------------------------------------
 function showExternalApplyNotification(count) {
   const notificationOptions = {
     type: "basic",
@@ -128,7 +106,7 @@ function showExternalApplyNotification(count) {
     title: "💼 Job Saved - Action Required",
     message: `You have ${count} pending job${count > 1 ? 's' : ''} waiting for confirmation.\n\n✓ After you apply on their website, click the extension icon (with badge ⓵) to confirm and save to your dashboard.`,
     priority: 2,
-    requireInteraction: true // Keeps notification visible until user interacts
+    requireInteraction: true
   };
 
   chrome.notifications.create(`jobtracker-external-${Date.now()}`, notificationOptions);
