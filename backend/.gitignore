@@ -4,4 +4,12 @@ node_modules
 
 /src/generated/prisma
 
-!.env.example
+# Compiled output
+dist/
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# But keep config files
+!*.config.js
