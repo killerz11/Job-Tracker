@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobTracker Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f9fafb;
+      padding: 40px 20px;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 32px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #111827;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    input[type="text"],
+    input[type="url"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      flex: 1;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .status-message.success {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status-message.error {
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    .current-config {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .current-config h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #374151;
+    }
+
+    .config-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+    }
+
+    .config-label {
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .config-value {
+      color: #111827;
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚙️ JobTracker Settings</h1>
+    <p class="subtitle">Configure your backend and dashboard URLs</p>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <div class="current-config">
+      <h3>Current Configuration</h3>
+      <div class="config-item">
+        <span class="config-label">Backend:</span>
+        <span class="config-value" id="currentBackend">Loading...</span>
+      </div>
+      <div class="config-item">
+        <span class="config-label">Dashboard:</span>
+        <span class="config-value" id="currentDashboard">Loading...</span>
+      </div>
+      <div class="config-item">
+        <span class="config-label">Mode:</span>
+        <span class="config-value" id="currentMode">Production</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Environment</div>
+      
+      <div class="checkbox-group">
+        <input type="checkbox" id="devMode">
+        <label for="devMode">Development Mode (use localhost URLs)</label>
+      </div>
+      <p class="hint">Enable this if you're running backend and dashboard locally</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Custom URLs (Optional)</div>
+      
+      <div class="form-group">
+        <label for="backendUrl">Backend API URL</label>
+        <input 
+          type="url" 
+          id="backendUrl" 
+          placeholder="https://your-backend.com or http://localhost:4000"
+        >
+        <p class="hint">Leave empty to use default production URL</p>
+      </div>
+
+      <div class="form-group">
+        <label for="dashboardUrl">Dashboard URL</label>
+        <input 
+          type="url" 
+          id="dashboardUrl" 
+          placeholder="https://your-dashboard.com or http://localhost:3000"
+        >
+        <p class="hint">Leave empty to use default production URL</p>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-primary" id="saveBtn">Save Settings</button>
+      <button class="btn-secondary" id="resetBtn">Reset to Default</button>
+    </div>
+  </div>
+
+  <script src="config.js" type="module"></script>
+  <script src="settings.js" type="module"></script>
+</body>
+</html>

@@ -1,18 +1,24 @@
-// =====================================
-// JobTracker – LinkedIn Job Application Tracker
-// =====================================
+import { info, error as logError, warn } from './core/logger.js';
+import { showPageNotification, showExtensionInvalidWarning } from './ui/notifications.js';
+import {
+  sendJobToBackground,
+  cacheExternalApplyJob,
+  checkForPendingJob
+} from './shared.js';
+import { extractJob, getPlatformName, detectApplyType } from './services/jobExtractor.js';
 
-console.log("[JobTracker] Content script loaded");
+
+info("Content script loaded");
 
 // Check if extension context is valid on load
 let extensionContextValid = true;
 try {
   chrome.runtime.getManifest();
-  console.log("[JobTracker] Extension version:", chrome.runtime.getManifest().version);
-  console.log("[JobTracker] Running on:", window.location.href);
+  info("Extension version:", chrome.runtime.getManifest().version);
+  info("Running on:", window.location.href);
 } catch (error) {
   extensionContextValid = false;
-  console.error("[JobTracker] Extension context invalid on load");
+  logError("Extension context invalid on load");
   // Show persistent warning banner
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", showExtensionInvalidWarning);
@@ -73,50 +79,22 @@ async function processJobQueue() {
   try {
     await sendJobToBackground(job.data, job.platform);
   } catch (error) {
-    console.error("[JobTracker] Failed to process job:", error);
+    logError("Failed to process job:", error);
   }
   
   isProcessing = false;
   
   // Process next job in queue (reduced delay)
   if (processingQueue.length > 0) {
-    setTimeout(processJobQueue, 100); // Reduced from 500ms to 100ms
+    setTimeout(processJobQueue, 50); // Reduced from 500ms to 100ms
   }
 }
 
 /**
- * Extract job details (SAFE + RELIABLE)
+ * Extract job details using jobExtractor service
  */
 function extractJobDetails() {
-
-  const locEl = document.querySelector(
-    'span[dir="ltr"] span.tvm__text--low-emphasis'
-  );
-
-  const locationText =
-    locEl?.innerText.split("·")[0].trim();
-
-  const jobTitle =
-    document.querySelector(
-      "h1.t-24.t-bold"
-    )?.innerText.trim() || "";
-
-  const company =
-    document.querySelector(
-      ".job-details-jobs-unified-top-card__company-name a"
-    )?.innerText.trim() || "";
-
-  return {
-    jobTitle,
-    companyName: company,
-    location: locationText,
-    description:
-      document.querySelector(".jobs-description-content__text")
-        ?.innerText.trim()
-        .slice(0, 5000) || "",
-    jobUrl: location.href,
-    appliedAt: new Date().toISOString(),
-  };
+  return extractJob();
 }
 
 
@@ -128,12 +106,12 @@ function cacheJobData() {
 
   if (data.jobTitle && data.companyName) {
     cachedJobData = data;
-    console.log("[JobTracker] Job data cached:", {
+    info("Job data cached:", {
       jobTitle: cachedJobData.jobTitle,
       companyName: cachedJobData.companyName,
     });
   } else {
-    console.warn("[JobTracker] Could not cache job data - missing title or company");
+    warn("Could not cache job data - missing title or company");
   }
 }
 
@@ -180,11 +158,11 @@ async function handleSubmitApplication() {
 
   // 1) Ensure this runs only for EASY APPLY submit press
   if (lastApplyType !== "EASY_APPLY") {
-    console.log("[JobTracker] Not an Easy Apply flow, skipping");
+    info("Not an Easy Apply flow, skipping");
     return;
   }
 
-  console.log("[JobTracker] Submit clicked - processing application");
+  info("Submit clicked - processing application");
 
   // 2) Wait for LinkedIn internal processing
   await new Promise(r => setTimeout(r, 1000));
@@ -194,18 +172,18 @@ async function handleSubmitApplication() {
   const confirmed = await waitForLinkedInSuccessModal();
 
   if (!confirmed) {
-    console.log("[JobTracker] ❌ LinkedIn did not show success banner");
+    info("❌ LinkedIn did not show success banner");
     return;
   }
 
-  console.log("[JobTracker] ✅ LinkedIn submission confirmed");
+  info("✅ LinkedIn submission confirmed");
 
   // 4) Get job data only after success
   const jobData = cachedJobData || extractJobDetails();
 
   // 5) Validate critical fields
   if (!jobData || !jobData.jobTitle || !jobData.companyName) {
-    console.warn("[JobTracker] Incomplete job data:", jobData);
+    warn("Incomplete job data:", jobData);
     lastApplyType = null;
     return;
   }
@@ -213,7 +191,7 @@ async function handleSubmitApplication() {
   // 6) Add to processing queue
   processingQueue.push({
     data: jobData,
-    platform: "linkedin",
+    platform: getPlatformName(),
     jobTitle: jobData.jobTitle
   });
 
@@ -233,18 +211,18 @@ async function handleSubmitApplication() {
  * Handle external apply button clicks
  */
 function handleExternalApply() {
-  console.log("[JobTracker] External apply triggered");
+  info("External apply triggered");
   lastApplyType = "EXTERNAL_APPLY";
 
   const jobData = extractJobDetails();
 
   if (!jobData?.jobTitle || !jobData?.companyName) {
-    console.warn("[JobTracker] Missing job data for external apply");
+    warn("Missing job data for external apply");
     showPageNotification("⚠️ Could not extract job details", "error");
     return;
   }
 
-  cacheExternalApplyJob(jobData, "linkedin");
+  cacheExternalApplyJob(jobData, getPlatformName());
 }
 
 // Check for pending job when page loads
@@ -273,58 +251,30 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  const text = button.innerText?.toLowerCase().trim() || "";
-  const aria = button.getAttribute("aria-label")?.toLowerCase() || "";
-  const classes = button.className || "";
+  // Use jobExtractor to detect button type
+  const applyType = detectApplyType(button);
+  
+  info("Button clicked, type:", applyType);
 
-  // Debug logging - log ALL button clicks on LinkedIn
-  console.log("[JobTracker] Button clicked:", {
-    text: text.substring(0, 50),
-    aria: aria.substring(0, 50),
-    hasJobsApplyClass: classes.includes("jobs-apply"),
-  });
-
-  // Easy Apply START → cache job data
-  // Check multiple patterns
-  if (
-    text.includes("easy apply") || 
-    aria.includes("easy apply") ||
-    (classes.includes("jobs-apply-button") && text === "easy apply")
-  ) {
-    console.log("[JobTracker] ✅ Easy Apply button detected!");
+  if (applyType === 'EASY_APPLY') {
+    info("✅ Easy Apply button detected!");
     lastApplyType = "EASY_APPLY";
     cacheJobData();
     return;
   }
 
-  // FINAL submit (more specific detection)
-  if (
-    text.includes("submit application") ||
-    aria.includes("submit application") ||
-    text === "submit" ||
-    text === "submit application"
-  ) {
-    console.log("[JobTracker] ✅ Submit button detected!");
+  if (applyType === 'SUBMIT') {
+    info("✅ Submit button detected!");
     handleSubmitApplication();
     return;
   }
 
-  // External Apply (redirect flow)
-  // Check for apply buttons that are NOT easy apply
-  if (
-    (text === "apply" || 
-     text === "apply now" || 
-     text.startsWith("apply") ||
-     aria.includes("apply to") ||
-     (classes.includes("jobs-apply-button") && !text.includes("easy"))) &&
-    !text.includes("easy apply") &&
-    !aria.includes("easy apply") &&
-    !text.includes("submit")
-  ) {
-    console.log("[JobTracker] ✅ External Apply button detected!");
+  if (applyType === 'EXTERNAL_APPLY') {
+    info("✅ External Apply button detected!");
     handleExternalApply();
     return;
   }
-}, true); // Use capture phase to catch events earlier
+}, true);
+ // Use capture phase to catch events earlier
 
-console.log("[JobTracker] Event listeners attached");
+info("Event listeners attached");
