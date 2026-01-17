@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({
     applied: 0,
     interview: 0,
-    offer: 0,
+    selected: 0,
     rejected: 0,
   });
 
@@ -44,7 +44,7 @@ export default function DashboardPage() {
         setStats({
           applied: allJobs.filter((j: any) => j.status === "APPLIED").length,
           interview: allJobs.filter((j: any) => j.status === "INTERVIEW").length,
-          offer: allJobs.filter((j: any) => j.status === "OFFER").length,
+          selected: allJobs.filter((j: any) => j.status === "OFFER").length,
           rejected: allJobs.filter((j: any) => j.status === "REJECTED").length,
         });
       } catch (err) {
