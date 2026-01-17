@@ -16,11 +16,11 @@ const filesToCopy = [
   'manifest.json',
   'popup.html',
   'settings.html',
-  'error-suppressor.js',
   'icons/icon16.jpg',
   'icons/icon32.jpg',
   'icons/icon48.jpg',
-  'icons/icon128.jpg'
+  'icons/icon128.jpg',
+  'icons/manifest-icons.json'
 ];
 
 // Copy each file

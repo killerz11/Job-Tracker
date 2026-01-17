@@ -1,14 +1,11 @@
 import { info, error as logError, warn } from './core/logger.js';
+import { showPageNotification, showExtensionInvalidWarning } from './ui/notifications.js';
 import {
-  showPageNotification,
   sendJobToBackground,
   cacheExternalApplyJob,
   checkForPendingJob
 } from './shared.js';
-import { LinkedInPlatform } from './platforms/LinkedInPlatform.js';
-
-// Initialize platform
-const platform = new LinkedInPlatform();
+import { extractJob, getPlatformName, detectApplyType } from './services/jobExtractor.js';
 
 
 info("Content script loaded");
@@ -94,10 +91,10 @@ async function processJobQueue() {
 }
 
 /**
- * Extract job details (SAFE + RELIABLE)
+ * Extract job details using jobExtractor service
  */
 function extractJobDetails() {
-    return platform.extractJobDetails();
+  return extractJob();
 }
 
 
@@ -194,7 +191,7 @@ async function handleSubmitApplication() {
   // 6) Add to processing queue
   processingQueue.push({
     data: jobData,
-    platform: "linkedin",
+    platform: getPlatformName(),
     jobTitle: jobData.jobTitle
   });
 
@@ -225,7 +222,7 @@ function handleExternalApply() {
     return;
   }
 
-  cacheExternalApplyJob(jobData, "linkedin");
+  cacheExternalApplyJob(jobData, getPlatformName());
 }
 
 // Check for pending job when page loads
@@ -254,8 +251,8 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // Use platform to detect button type
-  const applyType = platform.detectApplyButton(button);
+  // Use jobExtractor to detect button type
+  const applyType = detectApplyType(button);
   
   info("Button clicked, type:", applyType);
 

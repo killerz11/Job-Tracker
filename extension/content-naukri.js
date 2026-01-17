@@ -1,17 +1,14 @@
 // =====================================
 // JobTracker – Naukri Job Application Tracker
 // =====================================
-import { info, error as logError, warn } from './core/logger.js';
+import { info, error as logError } from './core/logger.js';
+import { showPageNotification } from './ui/notifications.js';
 import {
-  showPageNotification,
   sendJobToBackground,
   cacheExternalApplyJob,
   checkForPendingJob
 } from './shared.js';
-import { NaukriPlatform } from './platforms/NaukriPlatform.js';
-
-// Initialize platform
-const platform = new NaukriPlatform();
+import { extractJob, getPlatformName, detectApplyType } from './services/jobExtractor.js';
 
 info("Naukri content script loaded");
 info("Running on:", window.location.href);
@@ -21,7 +18,6 @@ console.log("[JobTracker] Naukri content script loaded");
 console.log("[JobTracker] Running on:", window.location.href);
 
 let isProcessing = false;
-let lastApplyType = null;
 let processingQueue = [];
 
 /**
@@ -50,10 +46,10 @@ async function processJobQueue() {
 }
 
 /**
- * Extract job details from Naukri page
+ * Extract job details using jobExtractor service
  */
 function extractJobDetails() {
-  return platform.extractJobDetails();
+  return extractJob();
 }
 
 
@@ -61,7 +57,6 @@ function extractJobDetails() {
  * Handle direct apply button click (applies on Naukri directly)
  */
 function handleDirectApply() {
-  lastApplyType = "DIRECT_APPLY";
   console.log("[JobTracker] Naukri direct apply button clicked");
 
   const jobData = extractJobDetails();
@@ -75,13 +70,11 @@ function handleDirectApply() {
   // Add to queue instead of processing immediately
   processingQueue.push({
     data: jobData,
-    platform: "naukri",
+    platform: getPlatformName(),
     jobTitle: jobData.jobTitle
   });
   
   console.log(`[JobTracker] Added to queue (${processingQueue.length} jobs pending)`);
-  
-  lastApplyType = null;
   
   // Wait for Naukri to process, then start queue (reduced delay)
   setTimeout(() => {
@@ -93,7 +86,6 @@ function handleDirectApply() {
  * Handle external apply button click (redirects to company site)
  */
 function handleExternalApply() {
-  lastApplyType = "EXTERNAL_APPLY";
   console.log("[JobTracker] Naukri external apply button clicked");
 
   const jobData = extractJobDetails();
@@ -105,9 +97,7 @@ function handleExternalApply() {
   }
 
   // Cache job for later confirmation (like LinkedIn external apply)
-  cacheExternalApplyJob(jobData, "naukri");
-  
-  lastApplyType = null;
+  cacheExternalApplyJob(jobData, getPlatformName());
 }
 
 /**
@@ -125,8 +115,8 @@ document.addEventListener("click", (e) => {
 
   if (!button) return;
 
-  // Use platform to detect button type
-  const applyType = platform.detectApplyButton(button);
+  // Use jobExtractor to detect button type
+  const applyType = detectApplyType(button);
   
   info("Naukri button clicked, type:", applyType);
 
