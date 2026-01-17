@@ -2,6 +2,7 @@ import { registerHandlers } from './core/messaging.js';
 import { info, error as logError } from './core/logger.js';
 import { JobQueue } from './services/JobQueue.js';
 import { ApiClient } from './services/ApiClient.js';
+import { getLocal, setLocal } from './core/storage.js';
 
 info("Background service worker started");
 
@@ -11,7 +12,16 @@ const jobQueue = new JobQueue();
 
 // Override JobQueue's _sendJob to use ApiClient
 jobQueue._sendJob = async (job) => {
-  return await apiClient.saveJob(job);
+  const result = await apiClient.saveJob(job);
+  
+  // 💾 Increment cached job count on successful save
+  const currentCount = await getLocal('jobCount');
+  if (currentCount !== undefined && currentCount !== null) {
+    await setLocal('jobCount', currentCount + 1);
+    info('Job count cache incremented:', currentCount + 1);
+  }
+  
+  return result;
 };
 
 // Initialize API client
@@ -25,6 +35,37 @@ registerHandlers({
   'CLEAR_BADGE': handleClearBadge,
   'RETRY_FAILED': handleRetryFailed
 });
+
+// ===============================
+// External Message Listener (for website auth)
+// ===============================
+chrome.runtime.onMessageExternal.addListener(
+  async (request, sender, sendResponse) => {
+    info('Received external message:', request.type);
+    
+    // Handle auth token from website
+    if (request.type === 'AUTH_TOKEN' && request.token) {
+      try {
+        // Store token in chrome.storage.sync
+        await chrome.storage.sync.set({ authToken: request.token });
+        info('Auth token received and stored from website');
+        
+        // Notify all extension contexts that auth succeeded
+        chrome.runtime.sendMessage({ type: 'AUTH_SUCCESS' }).catch(() => {
+          // Ignore errors if popup is not open
+        });
+        
+        sendResponse({ success: true });
+      } catch (error) {
+        logError('Failed to store auth token:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true; // Keep channel open for async response
+    }
+    
+    sendResponse({ success: false, error: 'Unknown message type' });
+  }
+);
 
 // Handler functions
 
@@ -111,3 +152,4 @@ function showExternalApplyNotification(count) {
 
   chrome.notifications.create(`jobtracker-external-${Date.now()}`, notificationOptions);
 }
+

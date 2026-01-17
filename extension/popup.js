@@ -1,6 +1,6 @@
 // Popup script
 import { getBackendUrl, getDashboardUrl } from './config.js';
-import { getLocal } from './core/storage.js';
+import { getLocal, setLocal } from './core/storage.js';
 import { info } from './core/logger.js';
 
 // URLs are now managed by config.js
@@ -14,6 +14,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   info('Using backend:', BACKEND_URL);
   info('Using dashboard:', DASHBOARD_URL);
+  
+  // Listen for auth success from background script
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'AUTH_SUCCESS') {
+      info('Auth success received, reloading popup');
+      window.location.reload();
+    }
+  });
   
   // ===============================
   // Check for pending jobs FIRST
@@ -53,10 +61,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Open dashboard
   document.getElementById("openDashboard")?.addEventListener("click", async () => {
     const { authToken } = await chrome.storage.sync.get(["authToken"]);
+    const extensionId = chrome.runtime.id;
 
     if (!authToken) {
-      // Open login page for new users
-      chrome.tabs.create({ url: `${DASHBOARD_URL}/login` });
+      // Open login page with extension ID for auth flow
+      chrome.tabs.create({ url: `${DASHBOARD_URL}/login?ext=${extensionId}` });
       return;
     }
 
@@ -65,47 +74,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     if (!res.ok) {
-      // Session expired, open login page
-      chrome.tabs.create({ url: `${DASHBOARD_URL}/login` });
+      // Session expired, open login page with extension ID
+      chrome.tabs.create({ url: `${DASHBOARD_URL}/login?ext=${extensionId}` });
       return;
     }
 
     // Authenticated, open dashboard
     chrome.tabs.create({ url: `${DASHBOARD_URL}/dashboard` });
-  });
-
-  // Login
-  document.getElementById("loginBtn")?.addEventListener("click", async () => {
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!email || !password) {
-      alert("Please enter both email and password");
-      return;
-    }
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        alert("Login failed: " + (errorData.error || "Invalid credentials"));
-        return;
-      }
-
-      const { token } = await res.json();
-      await chrome.storage.sync.set({ authToken: token });
-      await checkConnectionStatus(token);
-      
-      // Clear password field
-      document.getElementById("password").value = "";
-    } catch (error) {
-      alert("Connection error: " + error.message);
-    }
   });
 });
 
@@ -136,7 +111,7 @@ function showPendingJobsUI(jobs) {
       margin-bottom: 16px;
       padding-right: 4px;
     ">
-      ${jobs.map((job, index) => `
+      ${jobs.map((job) => `
         <div class="job-card" data-job-id="${job.id}" style="
           background: #f9fafb;
           border: 1px solid #e5e7eb;
@@ -379,6 +354,9 @@ async function saveJobToBackend(jobData) {
       data: jobData
     });
 
+    // Note: Cache increment happens in background.js, not here
+    // This prevents double-counting
+
     return response?.success || false;
   } catch (error) {
     console.error("Failed to save job:", error);
@@ -445,6 +423,13 @@ async function checkConnectionStatus(token) {
   const statusEl = document.getElementById("authStatus");
   const countEl = document.getElementById("appCount");
 
+  // 🚀 INSTANT: Show cached count immediately
+  const cachedCount = await getLocal('jobCount');
+  if (cachedCount !== undefined && cachedCount !== null) {
+    countEl.textContent = cachedCount;
+    info('[JobTracker] Showing cached job count:', cachedCount);
+  }
+
   try {
     const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -462,7 +447,7 @@ async function checkConnectionStatus(token) {
     statusEl.classList.add("connected");
     statusEl.classList.remove("disconnected");
 
-    // Fetch jobs count
+    // Fetch jobs count in background
     try {
       const jobsRes = await fetch(`${BACKEND_URL}/api/jobs?page=1&limit=1`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -475,15 +460,23 @@ async function checkConnectionStatus(token) {
         // Use the total count from pagination metadata
         const jobCount = data.total || 0;
         
+        // Update UI with fresh count
         countEl.textContent = jobCount;
-        console.log("[JobTracker] Job count:", jobCount);
+        
+        // 💾 Cache the fresh count for next time
+        await setLocal('jobCount', jobCount);
+        
+        console.log("[JobTracker] Job count updated and cached:", jobCount);
       } else {
         console.error("[JobTracker] Failed to fetch jobs:", jobsRes.status, await jobsRes.text());
         countEl.textContent = "0";
       }
     } catch (jobError) {
       console.error("[JobTracker] Error fetching jobs:", jobError);
-      countEl.textContent = "0";
+      // Keep showing cached count on error
+      if (cachedCount === undefined || cachedCount === null) {
+        countEl.textContent = "0";
+      }
     }
   } catch (error) {
     console.error("[JobTracker] Connection check failed:", error);
