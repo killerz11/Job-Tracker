@@ -14,7 +14,7 @@ https://humorous-solace-production.up.railway.app
 
 **Frontend Dashboard (Vercel):**
 ```
-https://job-tracker-gules-eta.vercel.app
+https://job-tracker-jwue.vercel.app
 ```
 
 ---
@@ -37,7 +37,7 @@ https://job-tracker-gules-eta.vercel.app
 ```javascript
 // Hardcoded production URLs at the top
 const BACKEND_URL = "https://humorous-solace-production.up.railway.app";
-const DASHBOARD_URL = "https://job-tracker-gules-eta.vercel.app";
+const DASHBOARD_URL = "https://job-tracker-jwue.vercel.app";
 ```
 
 **Removed:**
@@ -91,7 +91,7 @@ Everything works automatically with your production URLs.
 
 ### Test Dashboard
 1. After login, click "Open Dashboard"
-2. Should open: `https://job-tracker-gules-eta.vercel.app/dashboard`
+2. Should open: `https://job-tracker-jwue.vercel.app/dashboard`
 
 ### Test Job Tracking
 1. Go to LinkedIn jobs
@@ -150,7 +150,7 @@ const webDashboardUrl = dashboardUrl || "fallback-url";
 ### After (Hardcoded)
 ```javascript
 const BACKEND_URL = "https://humorous-solace-production.up.railway.app";
-const DASHBOARD_URL = "https://job-tracker-gules-eta.vercel.app";
+const DASHBOARD_URL = "https://job-tracker-jwue.vercel.app";
 // Use directly in all API calls
 ```
 
