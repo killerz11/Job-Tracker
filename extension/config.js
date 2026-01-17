@@ -4,7 +4,7 @@ const CONFIG = {
   // Default production URLs
   PRODUCTION: {
     BACKEND_URL: "https://humorous-solace-production.up.railway.app",
-    DASHBOARD_URL: "https://job-tracker-gules-eta.vercel.app"
+    DASHBOARD_URL: "https://job-tracker-jwue.vercel.app"
   },
   
   // Development URLs (override via chrome.storage)
