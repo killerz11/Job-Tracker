@@ -49,7 +49,7 @@ Copy this ID and verify it matches what the website is using.
 2. Click "Open Dashboard / Login"
 3. Check the URL - should be:
    ```
-   https://job-tracker-gules-eta.vercel.app/login?ext=YOUR_EXTENSION_ID
+   https://job-tracker-jwue.vercel.app/login?ext=YOUR_EXTENSION_ID
    ```
 
 4. Open browser console (F12) on the login page
@@ -89,7 +89,7 @@ Check `extension/manifest.json`:
 ```json
 "externally_connectable": {
   "matches": [
-    "https://job-tracker-gules-eta.vercel.app/*",
+    "https://job-tracker-jwue.vercel.app/*",
     "http://localhost:3000/*"
   ]
 }
@@ -100,7 +100,7 @@ Check `extension/manifest.json`:
 #### 6. Hard Refresh Production Site
 
 Sometimes browsers cache old JavaScript:
-1. Go to https://job-tracker-gules-eta.vercel.app/login
+1. Go to https://job-tracker-jwue.vercel.app/login
 2. Press `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
 3. This forces a hard refresh, bypassing cache
 

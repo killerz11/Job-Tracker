@@ -43,12 +43,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const { authToken } = await chrome.storage.sync.get(["authToken"]);
 
+  // Set initial loading state
+  const statusEl = document.getElementById("authStatus");
+  const countEl = document.getElementById("appCount");
+  
   if (authToken) {
+    // Show checking state while verifying
+    if (statusEl) {
+      statusEl.textContent = "Checking...";
+      statusEl.classList.remove("connected", "disconnected");
+    }
+    
     await checkConnectionStatus(authToken);
   } else {
     // Show not logged in state
-    const statusEl = document.getElementById("authStatus");
-    const countEl = document.getElementById("appCount");
     if (statusEl) {
       statusEl.textContent = "Not logged in";
       statusEl.classList.add("disconnected");
@@ -427,6 +435,10 @@ async function checkConnectionStatus(token) {
   const cachedCount = await getLocal('jobCount');
   if (cachedCount !== undefined && cachedCount !== null) {
     countEl.textContent = cachedCount;
+    // If we have cached data, assume connected (will verify below)
+    statusEl.textContent = "Connected";
+    statusEl.classList.add("connected");
+    statusEl.classList.remove("disconnected");
     info('[JobTracker] Showing cached job count:', cachedCount);
   }
 
